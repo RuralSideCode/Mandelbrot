@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Threading;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using System.Drawing;
 using System.IO;
@@ -12,7 +15,7 @@ namespace Mandelbrotset {
 		static int Maxiterations = 100;
 
 		static double maxz = 2;
-		static double minz = -2.5;
+		static double minz = -2;
 
 		static string filepath = Directory.GetCurrentDirectory();
 
@@ -22,13 +25,16 @@ namespace Mandelbrotset {
 
 			getSettings();
 
-			Bitmap image = new Bitmap(width, height);
-
 			Console.Clear();
 
 			Console.WriteLine("Starting...");
 
-			image = generateImage(image);
+            Bitmap B1 = GenerateQuadrent(true, true);
+            Bitmap B2 = GenerateQuadrent(false, true);
+            Bitmap B3 = GenerateQuadrent(false, false);
+            Bitmap B4 = GenerateQuadrent(true, false);
+
+            Bitmap image = CombineQuadrents(B1, B2, B3, B4);
 
 			try{
 			image.Save(filepath + "/Mandelbrot" + width + "X" + height + "i" + Maxiterations + "min" + minz + "max" + maxz + ".png");
@@ -78,65 +84,108 @@ namespace Mandelbrotset {
 				filepath = response;
 		}
 
-		static Bitmap generateImage(Bitmap img) {
+        /// <summary>
+        /// Generates one quadrent of the mandelbrot set
+        /// </summary>
+        /// <param name="isleft">Is Left half of quadrent</param>
+        /// <param name="isup">Is Upper half of the quadrent</param>
+        /// <returns></returns>
+        static Bitmap GenerateQuadrent (bool isleft, bool isup) {
 
-			int w = img.Width;
-			int h = img.Height;
+            Bitmap quadrent = new Bitmap(width / 2, height / 2);
 
-			Console.WriteLine("Creating Fractal...");
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
 
-			Console.WriteLine("Size: " + w +" X " + h);
+                    int _x = x;
+                    int _y = y;
 
-			Console.WriteLine("");
+                    if (isleft == IsLeft(x) && isup == IsUp(y)) {
 
-			Console.WriteLine("Please leave me alone if you want me to run correctly!");
+                        int iterations = CalculateIterations(x, y);
 
-			int pixelsDone = 0;
+                        int color = (int)map(iterations, 0, Maxiterations, 0, 255);
 
-			int pixelsTotal = w * h;
+                        if (!isleft) _x -= width / 2;
+                        if (!isup) _y -= height / 2;
 
-			for(int x = 0; x < w; x++) {
-				for(int y = 0; y < h; y++) {
+                        quadrent.SetPixel(_x, _y, Color.FromArgb(255, color, color, color));
+                    }
 
-					double x0 = map(x, 0, w, minz, maxz);
-					double y0 = map(y, 0, h, minz, maxz);
+                }
+            }
 
-					double cx = x0;
-					double cy = y0;
-
-					int iterations = 0;
-
-					while(iterations < Maxiterations) {
-
-						double _x0 = x0 * x0 - y0 * y0;
-						double _y0 = 2 * x0 * y0;
-
-						x0 = _x0 + cx;
-						y0 = _y0 + cy;
-
-						if(x0 * x0 + y0 * y0 > 2) {
-							break;
-						}
-
-						iterations += 1;
-					}
-
-					int color = (int)map(iterations, 0, Maxiterations, 0, 255);
-
-					img.SetPixel(x, y, Color.FromArgb(255, color, color, color));
-
-					pixelsDone += 1;
-
-					Console.Title = "Generating... " + (pixelsDone*100 / pixelsTotal) + "%";
-
-				}
-			}
-
-			return img;
-
-		}
+            return quadrent;
+        }
 
 
+        /// <summary>
+        /// Combines quadrents into one bitmap (I II III IV)
+        /// </summary>
+        /// <param name="B1">Bitmap 1</param>
+        /// <param name="B2">Bitmap 2</param>
+        /// <param name="B3">Bitmap 3</param>
+        /// <param name="B4">Bitmap 4</param>
+        /// <returns></returns>
+        static Bitmap CombineQuadrents(Bitmap B1, Bitmap B2, Bitmap B3, Bitmap B4) {
+
+            Bitmap image = new Bitmap(width, height);
+
+            for(int x = 0; x < width/2; x++) {
+                for(int y = 0; y < height/2; y++) {
+
+                    image.SetPixel(x, y, B1.GetPixel(x, y));
+                    image.SetPixel(x + width/2, y + height/2, B3.GetPixel(x, y));
+                    image.SetPixel(x + width/2, y, B2.GetPixel(x, y));
+                    image.SetPixel(x, y + height/2, B4.GetPixel(x, y));
+                }
+            }
+
+            return image;
+        }
+
+        static bool IsLeft(int x) {
+
+            if (x < width / 2) return true;
+            else return false;
+        }
+        static bool IsUp(int y) {
+
+            if (y < height / 2) return true;
+            else return false;
+        }
+
+
+        static int CalculateIterations(double x, double y) {
+
+            int w = width;
+            int h = height;
+
+            double x0 = map(x, 0, w, minz, maxz);
+            double y0 = map(y, 0, h, minz, maxz);
+
+            double cx = x0;
+            double cy = y0;
+
+            int iterations = 0;
+
+            while (iterations < Maxiterations) {
+
+                double _x0 = x0 * x0 - y0 * y0;
+                double _y0 = 2 * x0 * y0;
+
+                x0 = _x0 + cx;
+                y0 = _y0 + cy;
+
+                if (x0 * x0 + y0 * y0 > 2) {
+                    break;
+                }
+
+                iterations += 1;
+            }
+
+            return iterations;
+        }
 
 		static double map(double value, double fromSource, double toSource, double fromTarget, double toTarget) {
 			return (value - fromSource) / (toSource - fromSource) * (toTarget - fromTarget) + fromTarget;
