@@ -15,7 +15,7 @@ namespace Mandelbrotset {
         static double xcenter = 0;
         static double ycenter = 0;
 
-        static double scale = 4;
+        static double scale = 2.5;
     
 		static string filepath = Directory.GetCurrentDirectory();
 
