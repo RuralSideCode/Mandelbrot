@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Threading;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 using System.Drawing;
 using System.IO;
@@ -14,12 +12,16 @@ namespace Mandelbrotset {
 
 		static int Maxiterations = 100;
 
-		static double maxz = 2;
-		static double minz = -2;
+        static double xcenter = 0;
+        static double ycenter = 0;
 
+        static double scale = 4;
+    
 		static string filepath = Directory.GetCurrentDirectory();
 
         static int quadsRendered = 0;
+
+        //Locking object for the threads(so we don't  mix up the quadsRendered)
         static object baton = new object();
 
         static void Main(string[] args) {
@@ -31,6 +33,16 @@ namespace Mandelbrotset {
 			Console.Clear();
 
 			Console.WriteLine("Starting...");
+
+            Console.WriteLine();
+            Console.WriteLine("Fractal Dimensions: " + width + "X" + height);
+            Console.WriteLine("Iterations: " + Maxiterations);
+            Console.WriteLine("X position: " + xcenter);
+            Console.WriteLine("Y position: " + ycenter);
+            Console.WriteLine("Zoom factor: " + scale);
+            Console.WriteLine("Rendering threads: 4");
+            Console.WriteLine();
+            Console.WriteLine("Rendering...");
 
             Bitmap emptyb = new Bitmap(1, 1);
 
@@ -59,11 +71,11 @@ namespace Mandelbrotset {
             Bitmap image = CombineQuadrents(B1, B2, B3, B4);
 
             try {
-			image.Save(filepath + "/Mandelbrot" + width + "X" + height + "i" + Maxiterations + "min" + minz + "max" + maxz + ".png");
+			image.Save(filepath + "/Mandelbrot_Width" + width + "_Height" + height + "_i" + Maxiterations + "_XC" + xcenter + "_YC" + ycenter + "_Z" + scale + ".png");
 			} catch {
 				Console.WriteLine("Filepath does not exist");
 				Console.WriteLine("Saving at default path");
-				image.Save(Directory.GetCurrentDirectory() + "/Mandelbrot" + width + "X" + height + "i" + Maxiterations + "min" + minz + "max" + maxz + ".png");
+				image.Save(Directory.GetCurrentDirectory() + "/Mandelbrot_Width" + width + "_Height" + height + "_i" + Maxiterations + "_XC" + xcenter + "_YC" + ycenter + "_Z" + scale + ".png");
 			}
 
 			Console.Clear();
@@ -94,16 +106,18 @@ namespace Mandelbrotset {
 			Console.WriteLine("Enter interations: ");
 			Maxiterations = Convert.ToInt32(Console.ReadLine());
 
-			Console.WriteLine("Enter min offset/zoom (press enter for default): ");
+			Console.WriteLine("Enter X center(press enter for defaults): ");
 			response = Console.ReadLine();
 			if (response == String.Empty) {
-				maxz = 2;
-				minz = -2.5;
+				xcenter = 0;
 			} else {
-				minz = Convert.ToDouble(response);
+				xcenter = Convert.ToDouble(response);
 
-				Console.WriteLine("Enter max offset/zoom: ");
-				maxz = Convert.ToDouble(Console.ReadLine());
+				Console.WriteLine("Enter Y center: ");
+				ycenter = Convert.ToDouble(Console.ReadLine());
+
+                Console.WriteLine("Enter zoom (the smaller the more zoom): ");
+                scale = Convert.ToDouble(Console.ReadLine());
 			}
 			Console.WriteLine("Paste a filepath (press enter for defalt): ");
 			response = Console.ReadLine();
@@ -120,8 +134,6 @@ namespace Mandelbrotset {
         static void GenerateQuadrent (bool isleft, bool isup, out Bitmap image) {
 
             Bitmap quadrent = new Bitmap(width / 2, height / 2);
-
-            int pixelcount = 0;
 
             for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
@@ -192,8 +204,13 @@ namespace Mandelbrotset {
             int w = width;
             int h = height;
 
-            double x0 = map(x, 0, w, minz, maxz);
-            double y0 = map(y, 0, h, minz, maxz);
+            double xmin = xcenter - scale;
+            double xmax = xcenter + scale;
+            double ymin = ycenter - scale;
+            double ymax = ycenter + scale;
+
+            double x0 = xmin + x * (xmax - xmin) / width;
+            double y0 = ymin + y * (ymax - ymin) / height;
 
             double cx = x0;
             double cy = y0;
@@ -208,7 +225,7 @@ namespace Mandelbrotset {
                 x0 = _x0 + cx;
                 y0 = _y0 + cy;
 
-                if (x0 * x0 + y0 * y0 > 2) {
+                if (x0 * x0 + y0 * y0 >= 4) {
                     break;
                 }
 
