@@ -19,7 +19,10 @@ namespace Mandelbrotset {
 
 		static string filepath = Directory.GetCurrentDirectory();
 
-		static void Main(string[] args) {
+        static int quadsRendered = 0;
+        static object baton = new object();
+
+        static void Main(string[] args) {
 
 			Console.Title = "Mandelbrot Fractal Generator";
 
@@ -29,14 +32,33 @@ namespace Mandelbrotset {
 
 			Console.WriteLine("Starting...");
 
-            Bitmap B1 = GenerateQuadrent(true, true);
-            Bitmap B2 = GenerateQuadrent(false, true);
-            Bitmap B3 = GenerateQuadrent(false, false);
-            Bitmap B4 = GenerateQuadrent(true, false);
+            Bitmap emptyb = new Bitmap(1, 1);
+
+            Bitmap B1 = new Bitmap(1, 1); 
+            Bitmap B2 = new Bitmap(1, 1); 
+            Bitmap B3 = new Bitmap(1, 1); 
+            Bitmap B4 = new Bitmap(1, 1);
+
+            Thread R1 = new Thread(() => GenerateQuadrent(true, true, out B1));
+            Thread R2 = new Thread(() => GenerateQuadrent(false, true, out B2));
+            Thread R3 = new Thread(() => GenerateQuadrent(false, false, out B3));
+            Thread R4 = new Thread(() => GenerateQuadrent(true, false, out B4));
+
+            //state => GenerateQuadrent(true, true, out B1)
+            //state => GenerateQuadrent(false, true, out B2)
+            //state => GenerateQuadrent(false, false, out B3)
+            //state => GenerateQuadrent(true, false, out B4)
+
+            R1.Start();
+            R2.Start();
+            R3.Start();
+            R4.Start();
+
+            while (quadsRendered != 4) ;
 
             Bitmap image = CombineQuadrents(B1, B2, B3, B4);
 
-			try{
+            try {
 			image.Save(filepath + "/Mandelbrot" + width + "X" + height + "i" + Maxiterations + "min" + minz + "max" + maxz + ".png");
 			} catch {
 				Console.WriteLine("Filepath does not exist");
@@ -47,7 +69,12 @@ namespace Mandelbrotset {
 			Console.Clear();
 
 			Console.WriteLine("Done!");
-		}
+
+            R1.Abort();
+            R2.Abort();
+            R3.Abort();
+            R4.Abort();
+        }
 
 		static void getSettings() {
 
@@ -90,9 +117,11 @@ namespace Mandelbrotset {
         /// <param name="isleft">Is Left half of quadrent</param>
         /// <param name="isup">Is Upper half of the quadrent</param>
         /// <returns></returns>
-        static Bitmap GenerateQuadrent (bool isleft, bool isup) {
+        static void GenerateQuadrent (bool isleft, bool isup, out Bitmap image) {
 
             Bitmap quadrent = new Bitmap(width / 2, height / 2);
+
+            int pixelcount = 0;
 
             for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
@@ -110,12 +139,14 @@ namespace Mandelbrotset {
                         if (!isup) _y -= height / 2;
 
                         quadrent.SetPixel(_x, _y, Color.FromArgb(255, color, color, color));
+                        
                     }
 
                 }
             }
 
-            return quadrent;
+            image = quadrent;
+            lock (baton) { quadsRendered += 1; }
         }
 
 
